@@ -1,6 +1,8 @@
 #include <bits/stdc++.h>
 #include <iostream>
 #include <chrono>
+#include <mutex> // std::mutex, std::lock_guard
+
 
 using namespace std;
 typedef __int128 int128_t;
@@ -117,6 +119,33 @@ long long int cyclic_parallel_sum(vector<value_t>& A, vector<value_t>& B,vector 
     auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
     return duration.count();
 }
+
+// Matrix sum template using a Dynamic Block distribution template
+template <typename index_t, typename value_t>
+void sum_dynamic(vector<value_t>& A, vector<value_t>& B,vector <value_t>& C, index_t n,
+                 index_t num_threads = 8, index_t chunk_size = 64 / sizeof(value_t)) {
+    std::mutex mutex; // declare mutex and current lower index
+    index_t global_lower = 0;
+    auto dynamic_block_cyclic = [&]() -> void {
+        index_t lower = 0;         // assume we have not done anything
+        while (lower < n) {     // while there are still rows to compute
+            {                      // update lower row with global lower row
+                std::lock_guard<std::mutex> lock_guard(mutex);
+                lower = global_lower;
+                global_lower += chunk_size;
+            } // here we release the lock
+            const index_t upper = std::min(lower+chunk_size, n); // compute upper border of block
+            for (index_t row = lower; row < upper; row++) {
+                for (index_t col = 0; col < n; col++)
+                    C[row*n + col] = A[row*n + col] + B[row*n + col];
+            }
+        }
+    };
+    std::vector<std::thread> threads;
+    for (index_t id = 0; id < num_threads; id++) threads.emplace_back(dynamic_block_cyclic);
+    for (auto& thread : threads) thread.join();
+}
+
 
 
 template <typename value_t, typename index_t>
