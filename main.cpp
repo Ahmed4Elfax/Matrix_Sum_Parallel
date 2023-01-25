@@ -122,8 +122,8 @@ long long int cyclic_parallel_sum(vector<value_t>& A, vector<value_t>& B,vector 
 
 // Matrix sum template using a Dynamic Block distribution template
 template <typename index_t, typename value_t>
-void sum_dynamic(vector<value_t>& A, vector<value_t>& B,vector <value_t>& C, index_t n,
-                 index_t num_threads = 8, index_t chunk_size = 64 / sizeof(value_t)) {
+long long int sum_dynamic(vector<value_t>& A, vector<value_t>& B,vector <value_t>& C, index_t n,index_t num_threads = 8, index_t chunk_size = 64 / sizeof(value_t)) {
+    auto start = chrono::high_resolution_clock::now();
     std::mutex mutex; // declare mutex and current lower index
     index_t global_lower = 0;
     auto dynamic_block_cyclic = [&]() -> void {
@@ -144,6 +144,7 @@ void sum_dynamic(vector<value_t>& A, vector<value_t>& B,vector <value_t>& C, ind
     std::vector<std::thread> threads;
     for (index_t id = 0; id < num_threads; id++) threads.emplace_back(dynamic_block_cyclic);
     for (auto& thread : threads) thread.join();
+    return chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count();
 }
 
 
@@ -181,6 +182,9 @@ int main() {
         }
         for (uint64_t threads = 8 ; threads < 513; threads*=2){
             results <<","<<cyclic_parallel_sum(A,B,C,size,threads);
+        }
+        for (uint64_t threads = 8 ; threads < 513; threads*=2){
+            results <<","<< sum_dynamic(A,B,C,size,threads);
         }
         results << endl;
     }
